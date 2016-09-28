@@ -2,7 +2,9 @@
 
 > Telegram bot which adds all linked Spotify track links to a shared playlist.
 
+<br>
 ![Demo](docs/demo.gif)
+<br>
 
 ## Get started
 
