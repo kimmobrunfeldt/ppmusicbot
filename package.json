@@ -1,0 +1,29 @@
+{
+  "name": "pp-music",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "bin/hubot -a telegram"
+  },
+  "engines": {
+    "node": "6.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kimmobrunfeldt/pp-music.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kimmobrunfeldt/pp-music/issues"
+  },
+  "homepage": "https://github.com/kimmobrunfeldt/pp-music#readme",
+  "dependencies": {
+    "hubot": "^2.19.0",
+    "hubot-scripts": "^2.17.2",
+    "hubot-telegram": "^0.1.2",
+    "lodash": "^4.16.2",
+    "spotify-web-api-node": "^2.3.5"
+  }
+}
