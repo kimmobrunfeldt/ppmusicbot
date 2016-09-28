@@ -1,7 +1,16 @@
+# Music bot (TODO: what name???)
 
-# pp-music
+**Telegram bot which adds all linked Spotify track links to a shared playlist.**
 
+## Get started
 
-## Multiple adapters
+* `npm install`
+* `cp .env.sample .env`
+* Fill in the blank variables to `.env` file. **Don't** commit this file to version control.
+* `npm start`
+* Hubot is now running locally on your machine
 
-https://github.com/github/hubot/issues/1075#issuecomment-236996445
+## Authors
+
+* [Vesa Uimonen](https://github.com/vesauimonen)
+* [Kimmo Brunfeldt](https://github.com/kimmobrunfeldt)
