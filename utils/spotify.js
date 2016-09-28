@@ -24,6 +24,7 @@ function connect() {
     });
 }
 
+// Poor man's parser
 // Link must be either spotify track http link or spotify internal link
 function linkToTrackId(link) {
   if (_.startsWith(link, 'http')) {

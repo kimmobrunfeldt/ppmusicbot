@@ -1,37 +1,9 @@
-// Description:
-//   Add spotify links to playlist
-//
-// Dependencies:
-//   http://www.node-spotify.com/index.html
-//
-// Configuration:
-//   SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REFRESH_TOKEN
-//
-// Commands:
-//   <spotify track link> - adds track to playlist
-//
-// Author:
-//   kimmobrunfeldt
-
 const _ = require('lodash');
 const spotifyUtils = require('../utils/spotify');
 const linkRegex = new RegExp('(https?://(open|play).spotify.com/track/|spotify:track:)\\S+');
 
-_.each([
-  'SPOTIFY_PLAYLIST_USER',
-  'SPOTIFY_PLAYLIST_ID',
-  'SPOTIFY_CLIENT_ID',
-  'SPOTIFY_CLIENT_SECRET',
-  'SPOTIFY_REFRESH_TOKEN',
-  'TELEGRAM_TOKEN',
-], key => {
-  console.log(key, '=', process.env[key]);
-
-  if (!process.env[key]) {
-    throw new Error('Environment variable not defined: ' + key);
-  }
-});
-
+// XXX: Known problem: if bot hears a Spotify link before connection has been
+//      established, it will cause an error.
 let spotifyApi;
 spotifyUtils.connect().then(client => {
   spotifyApi = client;
@@ -52,7 +24,7 @@ module.exports = robot => {
       msg.send('Track added to playlist! 👊');
     }, function(err) {
       console.log('Error adding track to playlist: ', err);
-      msg.send(`Something went wrong! ${err.message}`);
+      msg.send(`Unable to add track to playlist 😓 "${err.message}"`);
     });
   });
 };

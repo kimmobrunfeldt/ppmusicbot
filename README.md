@@ -1,4 +1,4 @@
-# Music bot (TODO: what name???)
+# ppmusicbot
 
 **Telegram bot which adds all linked Spotify track links to a shared playlist.**
 
