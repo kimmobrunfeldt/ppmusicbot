@@ -25,10 +25,11 @@ function createRetryFunction(func, opts) {
             retryThis.retries += 1;
 
             setTimeout(() => {
-              // Recursively call `retry` function
-              // XXX: We are assuming that all subsequent calls of `func`
-              //      return a Promise too.
-              retry.apply(retryThis, args)
+              Promise.resolve(opts.beforeRetry(retryThis.retries))
+                // Recursively call `retry` function
+                // XXX: We are assuming that all subsequent calls of `func`
+                //      return a Promise too.
+                .then(() => retry.apply(retryThis, args))
                 .then(function resolver() {
                   // Promise should resolve with single value, but pass all
                   // parameters to the resolve just in case.
@@ -52,11 +53,19 @@ function createRetryFunction(func, opts) {
 function retryWrap(obj, _opts) {
   const opts = _.merge({
     // Decision function which gets the Promise rejection error as a parameter
+    // Should return true of false synchronously
     shouldRetry: err => true,
+
+    // Executed before each retry. Can return a Promise for async operations
+    beforeRetry: tryCount => Promise.resolve(),
+
     // Retry count overrides even though shouldRetry returns true
+    // For unlimited retries, use Infinity.
+    // To disable retrying, use 0.
     maxRetries: 5,
+
     // Timeout before retrying
-    retryTimeout: triesCount => 1000,
+    retryTimeout: tryCount => 1000,
   }, _opts);
 
   const objCopy = {};

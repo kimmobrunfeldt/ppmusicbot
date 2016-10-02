@@ -45,7 +45,50 @@ describe('retryWrap', () => {
       });
   });
 
-  it('maxRetries parameter should work', () => {
+  it('opts.shouldRetry', () => {
+    const wrapped = retryWrap(
+      moduleX({ failCount: 5 }),
+      {
+        maxRetries: Infinity,
+        retryTimeout: () => 10,
+        shouldRetry: () => false,  // never retry
+      }
+    );
+
+    return wrapped.asyncOperation()
+      .then(() => {
+        throw new Error('This should never happen. Operation should not succeed.');
+      })
+      .catch((err) => {
+        assert.strictEqual(err.message, 'Fail');
+        assert.strictEqual(wrapped.getFailsLeft(), 4);
+      });
+  });
+
+  it('opts.beforeRetry', () => {
+    let beforeCalled = false;
+
+    const wrapped = retryWrap(
+      moduleX({ failCount: 1 }),
+      {
+        maxRetries: Infinity,
+        retryTimeout: () => 10,
+        beforeRetry: (tryCount) => {
+          beforeCalled = true;
+          assert.strictEqual(tryCount, 1);
+
+          return new Promise(resolve => setTimeout(resolve, 100));
+        },
+      }
+    );
+
+    return wrapped.asyncOperation()
+      .then(() => {
+        assert.strictEqual(beforeCalled, true);
+      });
+  });
+
+  it('opts.maxRetries', () => {
     const wrapped = retryWrap(
       moduleX({ failCount: 5 }),
       { maxRetries: 2, retryTimeout: () => 10 }
@@ -53,7 +96,7 @@ describe('retryWrap', () => {
 
     return wrapped.asyncOperation()
       .then(() => {
-        throw new Error('Operation should not succeed.');
+        throw new Error('This should never happen. Operation should not succeed.');
       })
       .catch((err) => {
         assert.strictEqual(err.message, 'Fail');
