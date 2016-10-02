@@ -8,17 +8,17 @@ const spotifyApi = new SpotifyWebApi({
   refreshToken: process.env.SPOTIFY_REFRESH_TOKEN,
 });
 
-function connect() {
+function refreshToken() {
   return spotifyApi.refreshAccessToken()
-    .then(function(data) {
+    .then((data) => {
       console.log('The access token has been refreshed!');
 
       // Save the access token so that it's used in future calls
-      spotifyApi.setAccessToken(data.body['access_token']);
+      spotifyApi.setAccessToken(data.body.access_token);
 
       return spotifyApi;
     })
-    .catch(err => {
+    .catch((err) => {
       console.log('Error when refreshing access token', err);
       throw err;
     });
@@ -29,14 +29,14 @@ function connect() {
 function linkToTrackId(link) {
   if (_.startsWith(link, 'http')) {
     return _.last(link.split('/')).trim('/');
-  }  else if (_.startsWith(link, 'spotify:track')) {
+  } else if (_.startsWith(link, 'spotify:track')) {
     return _.last(link.split(':'));
   }
 
-  throw new Error('Unknown link format: ' + link);
+  throw new Error(`Unknown link format: ${link}`);
 }
 
 module.exports = {
-  connect,
+  refreshToken,
   linkToTrackId,
 };
