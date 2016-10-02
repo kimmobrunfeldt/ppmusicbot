@@ -4,7 +4,7 @@ function isPromise(obj) {
   return _.isFunction(_.get(obj, 'then'));
 }
 
-function createRetryFunction(func, opts) {
+function createRetryFunction(originalObj, func, opts) {
   function retry(/* arguments */) {
     // Keep state in retry function's this scope when running the recursive
     // loop
@@ -15,10 +15,10 @@ function createRetryFunction(func, opts) {
 
     const args = Array.prototype.slice.call(arguments);
 
-    const ret = func.apply(func, args);
+    const ret = func.apply(originalObj, args);
     if (isPromise(ret)) {
       return ret.catch((err) => {
-        const maxRetriesReached = retryThis.retries > opts.maxRetries;
+        const maxRetriesReached = retryThis.retries >= opts.maxRetries;
 
         if (opts.shouldRetry(err) && !maxRetriesReached) {
           return new Promise((resolve, reject) => {
@@ -66,17 +66,23 @@ function retryWrap(obj, _opts) {
 
     // Timeout before retrying
     retryTimeout: tryCount => 1000,
+
+    attributePicker: (attrKey) => true,
   }, _opts);
 
   const objCopy = {};
 
-  _.each(obj, (val, key) => {
-    if (_.isFunction(val)) {
-      objCopy[key] = createRetryFunction(val, opts);
+  // Intentionally also iterate through prototype properties, not just own
+  // properties.
+  for (let key in obj) {  // eslint-disable-line
+    const val = obj[key];
+
+    if (_.isFunction(val) && opts.attributePicker(key)) {
+      objCopy[key] = _.bind(createRetryFunction(obj, val, opts), obj);
     } else {
       objCopy[key] = val;
     }
-  });
+  }
 
   return objCopy;
 }

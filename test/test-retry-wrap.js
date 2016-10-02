@@ -103,6 +103,22 @@ describe('retryWrap', () => {
       });
   });
 
+  it('opts.maxRetries = 0 should disable retrying', () => {
+    const wrapped = retryWrap(
+      moduleX({ failCount: 5 }),
+      { maxRetries: 0 }
+    );
+
+    return wrapped.asyncOperation()
+      .then(() => {
+        throw new Error('This should never happen. Operation should not succeed.');
+      })
+      .catch((err) => {
+        assert.strictEqual(err.message, 'Fail');
+        assert.strictEqual(wrapped.getFailsLeft(), 4);
+      });
+  });
+
   it('non-function attributes should be left as is', () => {
     const wrapped = retryWrap(moduleX());
     assert.strictEqual(wrapped.number, 1);
