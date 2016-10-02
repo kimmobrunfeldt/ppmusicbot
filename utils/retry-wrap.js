@@ -47,7 +47,12 @@ function createRetryFunction(originalObj, func, opts) {
     return ret;
   }
 
-  return retry;
+  return function retryWrapper() {
+    // This extra wrapper will ensure that each call will get a fresh
+    // state to `this` inside retry function.
+    // I.e. retries counter will be reset on each function call
+    return retry.apply({}, arguments);
+  };
 }
 
 function retryWrap(obj, _opts) {

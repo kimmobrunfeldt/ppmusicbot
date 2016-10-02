@@ -5,6 +5,10 @@ const moduleX = function create(opts = {}) {
   let failsLeft = opts.failCount || 5;
   function asyncOperation() {
     if (failsLeft === 0) {
+      if (opts.cycle) {
+        failsLeft = opts.failCount || 5;
+      }
+
       return Promise.resolve('Success');
     }
 
@@ -42,6 +46,27 @@ describe('retryWrap', () => {
       .then((res) => {
         assert.strictEqual(res, 'Success');
         assert.strictEqual(wrapped.getFailsLeft(), 0);
+      });
+  });
+
+  it('retrying should work multiple times in a row', () => {
+    const wrapped = retryWrap(
+      moduleX({ failCount: 2, cycle: true }),
+      { maxRetries: 3, retryTimeout: () => 10 }
+    );
+
+    return wrapped.asyncOperation()
+      .then((res) => {
+        assert.strictEqual(res, 'Success');
+        assert.strictEqual(wrapped.getFailsLeft(), 2);
+
+        // The new call should have a fresh state of retry counter, it starts
+        // from 0 again.
+        return wrapped.asyncOperation();
+      })
+      .then((res) => {
+        assert.strictEqual(res, 'Success');
+        assert.strictEqual(wrapped.getFailsLeft(), 2);
       });
   });
 

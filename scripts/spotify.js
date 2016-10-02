@@ -2,9 +2,6 @@ const spotifyUtils = require('../utils/spotify');
 const pickRandom = require('pick-random');
 
 const linkRegex = new RegExp('(https?://(open|play).spotify.com/track/|spotify:track:)\\S+');
-
-// XXX: Known problem: if bot hears a Spotify link before connection has been
-//      established, it will cause an error.
 const spotifyApi = spotifyUtils.client;
 
 function randomNiceEmoji() {
