@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "bin/hubot -a telegram"
+    "start": "bin/hubot -a telegram",
+    "test": "mocha"
   },
   "engines": {
     "node": "6.6.0"
@@ -24,6 +25,13 @@
     "hubot-scripts": "^2.17.2",
     "hubot-telegram": "^0.1.2",
     "lodash": "^4.16.2",
+    "pick-random": "^1.1.0",
     "spotify-web-api-node": "^2.3.5"
+  },
+  "devDependencies": {
+    "eslint": "^3.7.0",
+    "eslint-config-airbnb-base": "^8.0.0",
+    "eslint-plugin-import": "^2.0.0",
+    "mocha": "^3.1.0"
   }
 }
