@@ -6,6 +6,11 @@
 ![Demo](docs/demo.gif)
 <br>
 
+**Features:**
+
+* Add Spotify links to a playlist
+* Convert Youtube links to Spotify tracks and add them to a playlist
+
 ## Get started
 
 * `npm install`
