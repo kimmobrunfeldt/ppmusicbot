@@ -58,6 +58,7 @@ module.exports = (robot) => {
         const uniqueId = uuid.v4();
         const askHuman = {
           id: uniqueId,
+          room: msg.message.room,
           question: oneLine`Add ${artistName} - ${trackName} ${spotifyUrl} to playlist?
                             Anyone can answer y/n.`,
           type: 'CONFIRM_ADD_TO_PLAYLIST',
