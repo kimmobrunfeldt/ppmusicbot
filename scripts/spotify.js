@@ -25,7 +25,7 @@ module.exports = (robot) => {
       .then(() => msg.send(`Track added to playlist! ${randomNiceEmoji()}`))
       .catch((err) => {
         console.log('Error adding track to playlist: ', err);
-        msg.send(`Failed to add track to playlist 😓 "${err.message}"`);
+        msg.send(`Failed to add track to playlist 😓  "${err.message}"`);
       });
   });
 };

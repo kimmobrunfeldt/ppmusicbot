@@ -17,7 +17,7 @@ function removeFeat(string) {
   // "David Guetta - Without You ft. Usher"
   // to
   // -> "David Guetta - Without You"
-  const matches = string.match(/(.*)f\W*\./);
+  const matches = string.match(/(.*)f.*\./);
   if (!matches) {
     return string;
   }
@@ -27,21 +27,29 @@ function removeFeat(string) {
 
 function normalizeYoutubeTitle(title) {
   const parsed = getArtistTitle(title);
-  const artistAndSong = parsed.join(' ').toLowerCase();
+  const artistAndSong = parsed.join(' ');
   return removeFeat(artistAndSong);
 }
 
 module.exports = (robot) => {
   robot.hear(linkRegex, (msg) => {
     const youtubeId = getYouTubeID(msg.match[0], { fuzzy: false });
+    if (!youtubeId) {
+      console.error(`Malformed youtube link: ${msg.match[0]}`);
+      return;
+    }
 
     youTube.getByIdAsync(youtubeId)
       .then((result) => {
         const title = _.get(result, 'items.0.snippet.title');
-        console.log('Normalize title:', title, '->', normalizeYoutubeTitle(title));
+        console.log(`Normalize title: "${title}" -> "${normalizeYoutubeTitle(title)}"`);
         return spotifyApi.searchTracks(normalizeYoutubeTitle(title));
       })
       .then((data) => {
+        if (_.isEmpty(_.get(data, 'body.tracks.items'))) {
+          return BPromise.resolve(false);
+        }
+
         const artistName = _.get(data, 'body.tracks.items.0.artists.0.name');
         const trackName = _.get(data, 'body.tracks.items.0.name');
         const trackId = _.get(data, 'body.tracks.items.0.id');
@@ -59,17 +67,23 @@ module.exports = (robot) => {
           },
         };
 
-        console.log('Add ask human', askHuman);
+        console.log('Add ask human job', askHuman);
         return BPromise.props({
           set: redis.set(`${REDIS_PREFIX}:askhuman-data:${uniqueId}`, JSON.stringify(askHuman)),
           uniqueId,
         });
       })
-      .then(res => redis.lpush(`${REDIS_PREFIX}:askhuman-jobs`, res.uniqueId))
-      .then(() => console.log('Added human confimation job.'))
+      .then((res) => {
+        if (!res) {
+          msg.send('Couldn\'t find any match from Spotify.');
+          return BPromise.resolve(false);
+        }
+
+        return redis.lpush(`${REDIS_PREFIX}:askhuman-jobs`, res.uniqueId)
+      })
       .catch((err) => {
         console.log('Error adding youtube track to playlist: ', err);
-        msg.send(`Failed to search Youtube track from Spotify 😓 "${err.message}"`);
+        msg.send(`Failed to search Youtube track from Spotify 😓  "${err.message}"`);
       });
   });
 };

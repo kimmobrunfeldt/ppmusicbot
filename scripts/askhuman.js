@@ -111,7 +111,7 @@ module.exports = (robot) => {
     return removeTooOldCurrentlyProcessing()
       .then((deletedCount) => {
         if (deletedCount > 0) {
-          robot.messageRoom('telegram', 'Ok, won\'t add it.');
+          robot.messageRoom('telegram', 'I\'ll take the silence as a no.');
         }
       })
       .then(() => getCurrentlyProcessingData())
@@ -132,7 +132,6 @@ module.exports = (robot) => {
 
         return getMessageData(id)
           .then((data) => {
-            console.log('Ask from humans ..');
             robot.messageRoom('telegram', data.question);
 
             const newData = _.merge({}, data, { askedAt: moment().toISOString() });
