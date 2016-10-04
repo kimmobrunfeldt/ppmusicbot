@@ -8,6 +8,8 @@ _.each([
   'SPOTIFY_CLIENT_SECRET',
   'SPOTIFY_REFRESH_TOKEN',
   'TELEGRAM_TOKEN',
+  'REDIS_URL',
+  'YOUTUBE_API_KEY',
 ], key => {
   console.log(key, '=', process.env[key]);
 
