@@ -36,20 +36,26 @@ function getCurrentlyProcessingData() {
     });
 }
 
-function handleConfirmAddToPlaylist(messageData, msg) {
-  const answer = msg.match[0].toLowerCase().trim();
-  if (answer === 'y') {
-    return spotifyApi.addTracksToPlaylist(
+function handleConfirmAddToPlaylist(answer, messageData, msg) {
+  const lowerCaseAnswer = answer.toLowerCase();
+  console.log(`Got answer  "${answer}"`);
+
+  if (lowerCaseAnswer === 'y') {
+    return BPromise.resolve(spotifyApi.addTracksToPlaylist(
       process.env.SPOTIFY_PLAYLIST_USER,
       process.env.SPOTIFY_PLAYLIST_ID,
       [`spotify:track:${messageData.meta.trackId}`]
-    )
-      .then(() => msg.send(`Track added to playlist! ${randomNiceEmoji()}`))
+    ))
+      .then(() => {
+        msg.send(`Track added to playlist! ${randomNiceEmoji()}`);
+        return true;
+      })
       .catch((err) => {
         console.log('Error adding track to playlist: ', err);
         msg.send(`Failed to add track to playlist 😓 "${err.message}"`);
+        return true;
       });
-  } else if (answer === 'n') {
+  } else if (lowerCaseAnswer === 'n') {
     msg.send('Ok won\'t add it.');
     return BPromise.resolve(true);
   }
@@ -57,23 +63,49 @@ function handleConfirmAddToPlaylist(messageData, msg) {
   return BPromise.resolve(false);
 }
 
-function removeMessageFromProcessing(uniqueId) {
-  return redis.lrem(`${REDIS_PREFIX}:askhuman-processing`, 0, uniqueId)
-    .then(() => redis.del(`${REDIS_PREFIX}:askhuman-data:${uniqueId}`));
+function parseAnswer(msg) {
+  const answer = msg.message.text;
+  if (_.startsWith(answer, process.env.HUBOT_NAME)) {
+    // For some reason when talking to hubot via private,
+    // msg.message.text starts with bot name and space. E.g.
+    // If someone says "y", it will show up as:
+    // "PPMusicBot y"
+    return answer.slice(process.env.HUBOT_NAME.length + 1, answer.length);
+  }
+
+  return answer;
 }
 
+const popMessageFromProcessing = BPromise.coroutine(function* popMessageFromProcessing(uniqueId) {
+  const delProcessingCount = yield redis.lrem(`${REDIS_PREFIX}:askhuman-processing`, 0, uniqueId);
+  if (!delProcessingCount) {
+    return null;
+  }
+
+  const data = yield getMessageData(uniqueId);
+  const delDataCount = redis.del(`${REDIS_PREFIX}:askhuman-data:${uniqueId}`);
+
+  if (!delDataCount) {
+    return null;
+  }
+
+  return data;
+});
+
 function handleAnswer(data, msg) {
+  const answer = parseAnswer(msg);
+
   return BPromise.resolve(true)
     .then(() => {
       if (data.type === 'CONFIRM_ADD_TO_PLAYLIST') {
-        return handleConfirmAddToPlaylist(data, msg);
+        return handleConfirmAddToPlaylist(answer, data, msg);
       }
 
       throw new Error(`Unknown message type: ${data.type}`);
     })
     .then((shouldRemove) => {
       if (shouldRemove) {
-        return removeMessageFromProcessing(data.id);
+        return popMessageFromProcessing(data.id);
       }
 
       return BPromise.resolve();
@@ -87,11 +119,11 @@ function removeTooOldCurrentlyProcessing() {
         const diff = Math.abs(moment().diff(moment(data.askedAt), 'seconds'));
 
         if (diff > 10) {
-          return removeMessageFromProcessing(data.id);
+          return popMessageFromProcessing(data.id);
         }
       }
 
-      return BPromise.resolve(0);
+      return BPromise.resolve(null);
     });
 }
 
@@ -109,9 +141,9 @@ module.exports = (robot) => {
 
   function pollMessage() {
     return removeTooOldCurrentlyProcessing()
-      .then((deletedCount) => {
-        if (deletedCount > 0) {
-          robot.messageRoom('telegram', 'I\'ll take the silence as a no.');
+      .then((deletedJob) => {
+        if (deletedJob) {
+          robot.messageRoom(deletedJob.room, 'I\'ll take the silence as a no.');
         }
       })
       .then(() => getCurrentlyProcessingData())
@@ -132,7 +164,7 @@ module.exports = (robot) => {
 
         return getMessageData(id)
           .then((data) => {
-            robot.messageRoom('telegram', data.question);
+            robot.messageRoom(data.room, data.question);
 
             const newData = _.merge({}, data, { askedAt: moment().toISOString() });
             return setMessageData(data.id, newData);
