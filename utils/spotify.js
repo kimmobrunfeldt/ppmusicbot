@@ -52,20 +52,7 @@ function refreshToken() {
     });
 }
 
-// Poor man's parser
-// Link must be either spotify track http link or spotify internal link
-function linkToTrackId(link) {
-  if (_.startsWith(link, 'http')) {
-    return _.last(link.split('/')).trim('/');
-  } else if (_.startsWith(link, 'spotify:track')) {
-    return _.last(link.split(':'));
-  }
-
-  throw new Error(`Unknown link format: ${link}`);
-}
-
 module.exports = {
   client: spotifyApi,
   refreshToken,
-  linkToTrackId,
 };
