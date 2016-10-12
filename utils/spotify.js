@@ -1,8 +1,8 @@
 const _ = require('lodash');
+const promiseRetryify = require('promise-retryify');
 const SpotifyWebApi = require('spotify-web-api-node');
-const retryWrap = require('./retry-wrap');
 
-const spotifyApi = retryWrap(
+const retryingSpotify = promiseRetryify(
   new SpotifyWebApi({
     clientId: process.env.SPOTIFY_CLIENT_ID,
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
@@ -37,14 +37,14 @@ const spotifyApi = retryWrap(
 );
 
 function refreshToken() {
-  return spotifyApi.refreshAccessToken()
+  return retryingSpotify.refreshAccessToken()
     .then((data) => {
       console.log('The access token has been refreshed!');
 
       // Save the access token so that it's used in future calls
-      spotifyApi.setAccessToken(data.body.access_token);
+      retryingSpotify.setAccessToken(data.body.access_token);
 
-      return spotifyApi;
+      return retryingSpotify;
     })
     .catch((err) => {
       console.log('Error when refreshing access token', err);
@@ -53,6 +53,6 @@ function refreshToken() {
 }
 
 module.exports = {
-  client: spotifyApi,
+  client: retryingSpotify,
   refreshToken,
 };

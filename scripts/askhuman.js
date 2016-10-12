@@ -3,40 +3,15 @@ const _ = require('lodash');
 const moment = require('moment');
 const { randomNiceEmoji } = require('../utils');
 const spotifyApi = require('../utils/spotify').client;
-const redis = require('../utils/redis').connect();
+const jobQueue = require('../utils/job-queue');
 
-const REDIS_PREFIX = 'hubot';
+const handlers = {
+  // Handler function should return a Promise which resolves with true/false
+  // If true, the job will be marked as processed
+  CONFIRM_ADD_TO_PLAYLIST: handleConfirmAddToPlaylist,
+};
 
-function getMessageData(uniqueId) {
-  return redis.get(`${REDIS_PREFIX}:askhuman-data:${uniqueId}`)
-    .then((str) => {
-      if (str) {
-        return JSON.parse(str);
-      }
-
-      return null;
-    });
-}
-
-function setMessageData(uniqueId, data) {
-  return redis.set(
-    `${REDIS_PREFIX}:askhuman-data:${uniqueId}`,
-    JSON.stringify(data)
-  );
-}
-
-function getCurrentlyProcessingData() {
-  return redis.lrange(`${REDIS_PREFIX}:askhuman-processing`, 0, 0)
-    .then((arr) => {
-      if (_.isEmpty(arr)) {
-        return null;
-      }
-
-      return getMessageData(_.first(arr));
-    });
-}
-
-function handleConfirmAddToPlaylist(answer, messageData, msg) {
+function handleConfirmAddToPlaylist(answer, job, msg) {
   const lowerCaseAnswer = answer.toLowerCase();
   console.log(`Got answer  "${answer}"`);
 
@@ -44,7 +19,7 @@ function handleConfirmAddToPlaylist(answer, messageData, msg) {
     return BPromise.resolve(spotifyApi.addTracksToPlaylist(
       process.env.SPOTIFY_PLAYLIST_USER,
       process.env.SPOTIFY_PLAYLIST_ID,
-      [`spotify:track:${messageData.meta.trackId}`]
+      [`spotify:track:${job.meta.trackId}`]
     ))
       .then(() => {
         msg.send(`Track added to playlist! ${randomNiceEmoji()}`);
@@ -76,36 +51,21 @@ function parseAnswer(msg) {
   return answer;
 }
 
-const popMessageFromProcessing = BPromise.coroutine(function* popMessageFromProcessing(uniqueId) {
-  const delProcessingCount = yield redis.lrem(`${REDIS_PREFIX}:askhuman-processing`, 0, uniqueId);
-  if (!delProcessingCount) {
-    return null;
-  }
-
-  const data = yield getMessageData(uniqueId);
-  const delDataCount = redis.del(`${REDIS_PREFIX}:askhuman-data:${uniqueId}`);
-
-  if (!delDataCount) {
-    return null;
-  }
-
-  return data;
-});
-
-function handleAnswer(data, msg) {
+function handleAnswer(job, msg) {
   const answer = parseAnswer(msg);
 
   return BPromise.resolve(true)
     .then(() => {
-      if (data.type === 'CONFIRM_ADD_TO_PLAYLIST') {
-        return handleConfirmAddToPlaylist(answer, data, msg);
+      const handler = handlers[job.type];
+      if (!handler) {
+        throw new Error(`Unknown message type: ${job.type}`);
       }
 
-      throw new Error(`Unknown message type: ${data.type}`);
+      return handler(answer, job, msg);
     })
     .then((shouldRemove) => {
       if (shouldRemove) {
-        return popMessageFromProcessing(data.id);
+        return jobQueue.popCurrentlyProcessingJob();
       }
 
       return BPromise.resolve();
@@ -113,13 +73,13 @@ function handleAnswer(data, msg) {
 }
 
 function removeTooOldCurrentlyProcessing() {
-  return getCurrentlyProcessingData()
-    .then((data) => {
-      if (data) {
-        const diff = Math.abs(moment().diff(moment(data.askedAt), 'seconds'));
+  return jobQueue.getCurrentlyProcessingJob()
+    .then((job) => {
+      if (job) {
+        const diff = Math.abs(moment().diff(moment(job.askedAt), 'seconds'));
 
         if (diff > 10) {
-          return popMessageFromProcessing(data.id);
+          return jobQueue.popCurrentlyProcessingJob();
         }
       }
 
@@ -127,53 +87,38 @@ function removeTooOldCurrentlyProcessing() {
     });
 }
 
+const pollMessage = BPromise.coroutine(function* (robot) {
+  const deletedJob = yield removeTooOldCurrentlyProcessing();
+  if (deletedJob) {
+    robot.messageRoom(deletedJob.room, deletedJob.onTimeoutMessage);
+  }
+
+  const currentJob = yield jobQueue.getCurrentlyProcessingJob();
+  if (!currentJob) {
+    const nextJob = yield jobQueue.startProcessingNextJob();
+
+    if (nextJob) {
+      robot.messageRoom(nextJob.room, nextJob.question);
+
+      const newJob = _.merge({}, nextJob, { askedAt: moment().toISOString() });
+      yield jobQueue.updateJob(nextJob.id, newJob);
+    }
+  }
+
+  setTimeout(pollMessage.bind(this, robot), 1000);
+});
+
 module.exports = (robot) => {
   robot.hear(/(.*)/, (msg) => {
-    getCurrentlyProcessingData()
-      .then((data) => {
-        if (!data) {
+    jobQueue.getCurrentlyProcessingJob()
+      .then((job) => {
+        if (!job) {
           return BPromise.resolve();
         }
 
-        return handleAnswer(data, msg);
+        return handleAnswer(job, msg);
       });
   });
 
-  function pollMessage() {
-    return removeTooOldCurrentlyProcessing()
-      .then((deletedJob) => {
-        if (deletedJob) {
-          robot.messageRoom(deletedJob.room, 'I\'ll take the silence as a no.');
-        }
-      })
-      .then(() => getCurrentlyProcessingData())
-      .then((data) => {
-        if (data) {
-          return null;
-        }
-
-        return redis.rpoplpush(
-          `${REDIS_PREFIX}:askhuman-jobs`,
-          `${REDIS_PREFIX}:askhuman-processing`
-        );
-      })
-      .then((id) => {
-        if (!id) {
-          return BPromise.resolve();
-        }
-
-        return getMessageData(id)
-          .then((data) => {
-            robot.messageRoom(data.room, data.question);
-
-            const newData = _.merge({}, data, { askedAt: moment().toISOString() });
-            return setMessageData(data.id, newData);
-          });
-      })
-      .finally(() => {
-        setTimeout(pollMessage, 1000);
-      });
-  }
-
-  pollMessage();
+  pollMessage(robot);
 };

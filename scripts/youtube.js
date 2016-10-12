@@ -7,9 +7,8 @@ const moment = require('moment');
 const uuid = require('node-uuid');
 const spotifyApi = require('../utils/spotify').client;
 const youTube = require('../utils/youtube').client;
-const redis = require('../utils/redis').connect();
+const jobQueue = require('../utils/job-queue');
 
-const REDIS_PREFIX = 'hubot';
 const linkRegex = new RegExp('(https?://.*youtube.com/watch\\S+|https?://.*youtu.be/\\S+)');
 
 function removeFeat(string) {
@@ -47,6 +46,7 @@ module.exports = (robot) => {
       })
       .then((data) => {
         if (_.isEmpty(_.get(data, 'body.tracks.items'))) {
+          msg.send('Couldn\'t find any match from Spotify.');
           return BPromise.resolve(false);
         }
 
@@ -55,32 +55,20 @@ module.exports = (robot) => {
         const trackId = _.get(data, 'body.tracks.items.0.id');
         const spotifyUrl = _.get(data, 'body.tracks.items.0.external_urls.spotify');
 
-        const uniqueId = uuid.v4();
-        const askHuman = {
-          id: uniqueId,
+        const askHumanJob = {
+          id: uuid.v4(),
           room: msg.message.room,
           question: oneLine`Add ${artistName} - ${trackName} ${spotifyUrl} to playlist?
                             Anyone can answer y/n.`,
           type: 'CONFIRM_ADD_TO_PLAYLIST',
           createdAt: moment().toISOString(),
+          onTimeoutMessage: 'I\'ll take the silence as a no.',
           meta: {
             trackId,
           },
         };
 
-        console.log('Add ask human job', askHuman);
-        return BPromise.props({
-          set: redis.set(`${REDIS_PREFIX}:askhuman-data:${uniqueId}`, JSON.stringify(askHuman)),
-          uniqueId,
-        });
-      })
-      .then((res) => {
-        if (!res) {
-          msg.send('Couldn\'t find any match from Spotify.');
-          return BPromise.resolve(false);
-        }
-
-        return redis.lpush(`${REDIS_PREFIX}:askhuman-jobs`, res.uniqueId)
+        return jobQueue.addJob(askHumanJob);
       })
       .catch((err) => {
         console.log('Error adding youtube track to playlist: ', err);

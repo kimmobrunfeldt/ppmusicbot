@@ -33,6 +33,7 @@
     "moment": "^2.15.1",
     "node-uuid": "^1.4.7",
     "pick-random": "^1.1.0",
+    "promise-retryify": "^0.2.0",
     "spotify-uri": "^1.0.0",
     "spotify-web-api-node": "^2.3.5",
     "youtube-node": "^1.3.0"
