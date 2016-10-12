@@ -38,10 +38,15 @@
 * Create a new app https://developer.spotify.com/my-applications/#!/applications
 * Follow [these examples](https://github.com/thelinmichael/spotify-web-api-node#authorization) to get client id, client secret and an initial refresh token.
 
+### Youtube API
+
+* Obtain a Youtube API v3 token https://developers.google.com/youtube/v3/getting-started
+
 ### Heroku
 
 * Create a new Heroku app, e.g. `ppmusic`
 * `heroku ps:scale web=0 telegram=1 -a ppmusic` Scale heroku dyno processes
+* Provision add-ons. Redis is required.
 * Setup needed environment variables, check .env.sample for reference.
 * Do a [release](#release)
 
